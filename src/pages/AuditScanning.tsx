@@ -1,7 +1,69 @@
-import { Box, Container, Typography, TextField } from "@mui/material";
+import {
+  Box,
+  Container,
+  Typography,
+  TextField,
+  Button,
+  InputAdornment,
+} from "@mui/material";
 import PageLoading from "../components/PageLoading";
+import { useParams } from "react-router";
+import customAxios from "../lib/customAxios";
+import { useState, useEffect } from "react";
+
+interface AuditScanningProps {
+  id: string;
+  url: string;
+  status: "pending" | "in_progress" | "finished" | "failed";
+  progress: number;
+  result_json: object | null;
+  error: string | null;
+  created_at: string;
+  upadated_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+}
 
 export default function AuditScanning() {
+  const { auditId } = useParams<{ auditId: string }>();
+  const [auditData, setAuditData] = useState<AuditScanningProps | null>(null);
+  const [isFinished, setIsFinished] = useState(false);
+  const [email, setEmail] = useState("");
+
+  const fetchResults = async () => {
+    try {
+      const response = await customAxios.get(`/audits/${auditId}`);
+      console.log("Audit:", response.data);
+      if (response.data.status === "finished") {
+        setAuditData(response.data);
+        setIsFinished(true);
+      }
+    } catch (error) {
+      console.error("Error fetching audit status:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (!auditId || isFinished) return;
+
+    fetchResults(); // initial fetch
+
+    const interval = setInterval(fetchResults, 5000);
+
+    return () => clearInterval(interval);
+  }, [auditId, isFinished]);
+
+  const appendEmail = async (email: string) => {
+    try {
+      const response = await customAxios.patch(`/audits/${auditId}/email`, {
+        email: email.trim(),
+      });
+      console.log("Email appended:", response.data);
+    } catch (error) {
+      console.error("Error appending email:", error);
+    }
+  };
+
   return (
     <Box
       sx={{
@@ -82,10 +144,37 @@ export default function AuditScanning() {
             fullWidth
             type="email"
             label="Email address"
+            value={email}
             placeholder="you@company.com"
+            onChange={(e) => setEmail(e.target.value)}
             slotProps={{
               inputLabel: {
                 sx: { color: "rgba(255,255,255,0.65)" },
+              },
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <Button
+                      variant="contained"
+                      size="small"
+                      sx={{
+                        ml: 1,
+                        textTransform: "none",
+                        borderRadius: 1.5,
+                        bgcolor: "rgba(143,0,255,0.85)",
+                        "&:hover": {
+                          bgcolor: "rgba(143,0,255,1)",
+                        },
+                      }}
+                      disabled={!email}
+                      onClick={() => {
+                        appendEmail(email);
+                      }}
+                    >
+                      Submit
+                    </Button>
+                  </InputAdornment>
+                ),
               },
             }}
             sx={{
