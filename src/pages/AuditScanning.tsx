@@ -27,8 +27,11 @@ interface AuditScanningProps {
 export default function AuditScanning() {
   const { auditId } = useParams<{ auditId: string }>();
   const [auditData, setAuditData] = useState<AuditScanningProps | null>(null);
-  const [isFinished, setIsFinished] = useState(false);
   const [email, setEmail] = useState("");
+
+  //Two states to display next button
+  const [isFinished, setIsFinished] = useState(false);
+  const [isEmailSet, setIsEmailSet] = useState(false);
 
   const fetchResults = async () => {
     try {
@@ -38,8 +41,23 @@ export default function AuditScanning() {
         setAuditData(response.data);
         setIsFinished(true);
       }
+      if (response.data.email && !isEmailSet) {
+        setIsEmailSet(true);
+      }
     } catch (error) {
       console.error("Error fetching audit status:", error);
+    }
+  };
+
+  const appendEmail = async (email: string) => {
+    try {
+      const response = await customAxios.patch(`/audits/${auditId}/email`, {
+        email: email.trim(),
+      });
+      console.log("Email appended:", response.data);
+      setIsEmailSet(true);
+    } catch (error) {
+      console.error("Error appending email:", error);
     }
   };
 
@@ -51,18 +69,7 @@ export default function AuditScanning() {
     const interval = setInterval(fetchResults, 5000);
 
     return () => clearInterval(interval);
-  }, [auditId, isFinished]);
-
-  const appendEmail = async (email: string) => {
-    try {
-      const response = await customAxios.patch(`/audits/${auditId}/email`, {
-        email: email.trim(),
-      });
-      console.log("Email appended:", response.data);
-    } catch (error) {
-      console.error("Error appending email:", error);
-    }
-  };
+  }, [auditId, isFinished, isEmailSet]);
 
   return (
     <Box
@@ -84,43 +91,71 @@ export default function AuditScanning() {
             width: "100%",
           }}
         > */}
-        {/* Header */}
-        <Typography
-          variant="h4"
-          sx={{
-            fontWeight: 700,
-            mb: 3,
-            width: "100%",
-            textAlign: "left",
-          }}
-        >
-          Running website audit…
-        </Typography>
 
-        {/* Loader (visually centered block) */}
-        <Box
-          sx={{
-            width: "100%",
-            display: "flex",
-            justifyContent: "flex-start",
-            my: 4,
-          }}
-        >
-          <PageLoading height="20vh" width="100%" />
-        </Box>
+        {!isFinished ? (
+          <>
+            <Typography
+              variant="h4"
+              sx={{
+                fontWeight: 700,
+                mb: 3,
+                width: "100%",
+                textAlign: "left",
+              }}
+            >
+              Running website audit…
+            </Typography>
 
-        {/* Status text */}
-        <Typography
-          sx={{
-            color: "rgba(255,255,255,0.7)",
-            textAlign: "left",
-            maxWidth: 520,
-            mb: 6,
-          }}
-        >
-          Hang tight — we’re analyzing requests, cookies, and platform signals.
-        </Typography>
+            <Box
+              sx={{
+                width: "100%",
+                display: "flex",
+                justifyContent: "flex-start",
+                my: 4,
+              }}
+            >
+              <PageLoading height="20vh" width="100%" />
+            </Box>
 
+            <Typography
+              sx={{
+                color: "rgba(255,255,255,0.7)",
+                textAlign: "left",
+                maxWidth: 520,
+                mb: 6,
+              }}
+            >
+              Hang tight — we’re analyzing requests, cookies, and platform
+              signals.
+            </Typography>
+          </>
+        ) : (
+          <>
+            <Typography
+              variant="h4"
+              sx={{
+                fontWeight: 700,
+                mb: 3,
+                width: "100%",
+                textAlign: "left",
+              }}
+            >
+              Audit complete!
+            </Typography>
+
+            <Typography
+              sx={{
+                color: "rgba(255,255,255,0.7)",
+                textAlign: "left",
+                maxWidth: 520,
+                mb: 6,
+              }}
+            >
+              Your audit is complete. Enter your email below to receive the
+              results.
+            </Typography>
+          </>
+        )}
         {/* Email capture */}
         <Box
           sx={{
