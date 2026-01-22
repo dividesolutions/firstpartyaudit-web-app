@@ -24,7 +24,7 @@ export default function Home() {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState<"success" | "error">(
-    "success"
+    "success",
   );
   const handleSnackbarClose = () => setSnackbarOpen(false);
 
@@ -61,7 +61,7 @@ export default function Home() {
     } catch (error) {
       console.error("Error running audit:", error);
       setSnackbarMessage(
-        "Failed to start audit. Please check the URL and try again."
+        "Failed to start audit. Please check the URL and try again.",
       );
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
@@ -116,17 +116,17 @@ export default function Home() {
               mb: 1,
             }}
           >
-            First Party Audit
+            First Party Audit | Website Tracking & Signal Analysis
           </Typography>
 
-          <Typography
+          {/* <Typography
             sx={{
               fontSize: "0.9rem",
               color: "rgba(255,255,255,0.65)",
             }}
           >
             Website Tracking & Signal Analysis
-          </Typography>
+          </Typography> */}
         </Box>
         {/* Title */}
         <Typography

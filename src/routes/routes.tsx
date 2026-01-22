@@ -4,6 +4,7 @@ import CssSpinner from "../components/CssSpinner";
 
 const HomeRoute = lazy(() => import("../pages/Home"));
 const AuditScanning = lazy(() => import("../pages/AuditScanning"));
+const AuditResults = lazy(() => import("../pages/AuditResults"));
 
 function AppRoutes() {
   return (
@@ -11,6 +12,7 @@ function AppRoutes() {
       <Routes>
         <Route path="/" element={<HomeRoute />} />
         <Route path="/audit/:auditId" element={<AuditScanning />} />
+        <Route path="/audit/:auditId/results" element={<AuditResults />} />
       </Routes>
     </Suspense>
   );
