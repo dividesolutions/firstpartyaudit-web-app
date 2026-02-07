@@ -1,65 +1,144 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { Link as RouterLink, useParams } from "react-router-dom";
+import customAxios from "../lib/customAxios";
+import type { SignalLevel } from "../components/SignalBars";
+import { SignalBars } from "../components/SignalBars";
 import {
   Box,
-  Container,
-  Typography,
-  Paper,
-  Stack,
-  Grid,
-  Chip,
   Button,
+  Chip,
+  Container,
   Divider,
   LinearProgress,
+  Paper,
+  Stack,
+  Typography,
 } from "@mui/material";
-import { useEffect, useMemo, useState } from "react";
-import { useParams, Link as RouterLink } from "react-router";
-import customAxios from "../lib/customAxios";
+
+import Grid from "@mui/material/Grid";
+import Accordion from "@mui/material/Accordion";
+import AccordionSummary from "@mui/material/AccordionSummary";
+import AccordionDetails from "@mui/material/AccordionDetails";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+
+import FacebookIcon from "@mui/icons-material/Facebook";
+import GoogleIcon from "@mui/icons-material/Google";
+import MusicNoteIcon from "@mui/icons-material/MusicNote";
+import WorkIcon from "@mui/icons-material/Work";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+
 import SnackbarAlert from "../components/SnackBarAlert";
 
-type AuditStatus = "pending" | "in_progress" | "finished" | "failed";
-
-interface PlatformRow {
-  platform: string; // "Meta", "Google", "TikTok"
-  score: number; // 0-100
-  grade: string; // "A".."F"
-  signal: "Strong" | "Weak";
-  estimatedRevenueLoss: string; // "10–20%"
-  ctaHref?: string; // optional link to your CTA
-}
+// ============================
+// Types
+// ============================
+type AuditStatus = "queued" | "running" | "finished" | "failed";
 
 interface AuditResultResponse {
   id: string;
   url: string;
+  email: string;
   status: AuditStatus;
   progress: number;
-  created_at?: string;
-  finished_at?: string | null;
-
-  // these can come from your API result_json later
-  overallScore?: number; // 0-100
-  platforms?: PlatformRow[];
-  recommendedActions?: string[];
-  notes?: string[];
-  returnOnTrackingPotential?: number; // 0-100
+  result: ResultJson | null;
+  error: string | null;
+  createdAt: string;
+  startedAt: string;
+  finishedAt: string;
 }
 
-const gradeFromScore = (score: number) => {
+interface ResultJson {
+  url: string;
+  letterGrade: string;
+  overallScore: number;
+  recommendedActions: string;
+
+  cookies: {
+    tracking: Array<{
+      name: string;
+      provider: string;
+      category: string;
+    }>;
+  };
+
+  platforms: Array<{
+    platform: string;
+    score: number;
+    present: boolean;
+    resolveCTA?: string;
+    debug: {
+      cookies: string[];
+      fpCookies?: string[];
+      tpCookies?: string[];
+    };
+  }>;
+}
+
+// ============================
+// Helpers
+// ============================
+function gradeFromScore(score: number): string {
   if (score >= 90) return "A";
+  if (score >= 85) return "B+";
   if (score >= 80) return "B";
+  if (score >= 75) return "C+";
   if (score >= 70) return "C";
   if (score >= 60) return "D";
   return "F";
+}
+
+function labelFromScore(score: number): string {
+  if (score >= 90) return "Excellent";
+  if (score >= 85) return "Very Good";
+  if (score >= 80) return "Good";
+  if (score >= 70) return "Okay";
+  if (score >= 60) return "Weak";
+  return "Poor";
+}
+
+function signalFromScore(score: number): SignalLevel {
+  if (score >= 85) return "strong";
+  if (score >= 70) return "medium";
+  if (score >= 50) return "weak";
+  return "bad";
+}
+
+const platformMeta: Record<string, { label: string; icon: React.ReactNode }> = {
+  Meta: {
+    label: "Meta",
+    icon: <FacebookIcon sx={{ width: 32, height: 32 }} />,
+  },
+  "Google Analytics": {
+    label: "Google Analytics",
+    icon: <GoogleIcon sx={{ width: 32, height: 32 }} />,
+  },
+  "Google Ads": {
+    label: "Google Ads",
+    icon: <GoogleIcon sx={{ width: 32, height: 32 }} />,
+  },
+  TikTok: {
+    label: "TikTok",
+    icon: <MusicNoteIcon sx={{ width: 32, height: 32 }} />,
+  },
+  LinkedIn: {
+    label: "LinkedIn",
+    icon: <WorkIcon sx={{ width: 32, height: 32 }} />,
+  },
 };
 
-const labelFromScore = (score: number) => {
-  if (score >= 80) return "Strong";
-  if (score >= 60) return "Moderate";
-  return "Weak";
-};
+const getPlatformMeta = (platform: string) =>
+  platformMeta[platform] ?? {
+    label: platform,
+    icon: <HelpOutlineIcon />,
+  };
 
+// ============================
+// Page
+// ============================
 export default function AuditResults() {
   const { auditId } = useParams<{ auditId: string }>();
 
-  const [data, setData] = useState<AuditResultResponse | null>(null);
+  const [auditData, setAuditData] = useState<AuditResultResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -72,63 +151,13 @@ export default function AuditResults() {
 
   const fetchAudit = async () => {
     if (!auditId) return;
+
     try {
       setLoading(true);
       const res = await customAxios.get(`/audits/${auditId}`);
-
-      // If your backend returns result_json, map it here.
-      // For now, we’ll accept the response as-is and provide safe defaults.
       const raw = res.data as AuditResultResponse;
 
-      // TEMP fallback demo data (remove once your API provides it)
-      const overallScore =
-        raw.overallScore ??
-        (raw.status === "finished" ? Math.floor(60 + Math.random() * 35) : 0);
-
-      const platforms: PlatformRow[] = raw.platforms ?? [
-        {
-          platform: "Meta",
-          score: 62,
-          grade: "D",
-          signal: "Weak",
-          estimatedRevenueLoss: "15–30%",
-          ctaHref: "/resolve/meta",
-        },
-        {
-          platform: "Google",
-          score: 64,
-          grade: "D",
-          signal: "Weak",
-          estimatedRevenueLoss: "10–20%",
-          ctaHref: "/resolve/google",
-        },
-        {
-          platform: "TikTok",
-          score: 61,
-          grade: "D",
-          signal: "Weak",
-          estimatedRevenueLoss: "20–25%",
-          ctaHref: "/resolve/tiktok",
-        },
-      ];
-
-      const next: AuditResultResponse = {
-        ...raw,
-        overallScore,
-        platforms,
-        returnOnTrackingPotential: raw.returnOnTrackingPotential ?? 95,
-        recommendedActions: raw.recommendedActions ?? [
-          "Move key event signals to a first-party endpoint (server-side collection).",
-          "Reduce third-party dependency by consolidating tag firing.",
-          "Harden cookies (Secure, SameSite) and clean up redundant identifiers.",
-        ],
-        notes: raw.notes ?? [
-          "Signal quality is limited by third-party cookie availability and browser restrictions.",
-          "You can materially improve resilience by shifting to first-party tracking architecture.",
-        ],
-      };
-
-      setData(next);
+      setAuditData(raw);
     } catch (e) {
       console.error(e);
       setSnackbarMessage("Failed to load audit results. Please try again.");
@@ -141,15 +170,19 @@ export default function AuditResults() {
 
   useEffect(() => {
     fetchAudit();
-    // You can optionally poll if status isn’t finished yet
-    // (e.g. if user lands here early)
   }, [auditId]);
 
-  const overallScore = data?.overallScore ?? 0;
-  const overallGrade = useMemo(
-    () => gradeFromScore(overallScore),
-    [overallScore],
-  );
+  const result = auditData?.result;
+
+  const overallScore = result?.overallScore ?? 0;
+  const overallGrade = useMemo(() => {
+    // Prefer backend grade if present, otherwise compute
+    return gradeFromScore(overallScore);
+  }, [overallScore]);
+
+  const presentPlatforms = useMemo(() => {
+    return (result?.platforms ?? []).filter((p) => p.present);
+  }, [result?.platforms]);
 
   return (
     <Box
@@ -203,31 +236,8 @@ export default function AuditResults() {
               fontSize: { xs: "2rem", md: "2.4rem" },
             }}
           >
-            {data?.url ? `Results for ${data.url}` : "Audit results"}
+            {auditData?.url ? `Results for ${auditData.url}` : "Audit results"}
           </Typography>
-
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Chip
-              label={data?.status ? `Status: ${data.status}` : "Status: —"}
-              size="small"
-              sx={{
-                bgcolor: "rgba(255,255,255,0.08)",
-                color: "rgba(255,255,255,0.8)",
-                border: "1px solid rgba(255,255,255,0.12)",
-              }}
-            />
-            {data?.status !== "finished" && (
-              <Chip
-                label={`${data?.progress ?? 0}%`}
-                size="small"
-                sx={{
-                  bgcolor: "rgba(143,0,255,0.18)",
-                  color: "rgba(255,255,255,0.9)",
-                  border: "1px solid rgba(143,0,255,0.25)",
-                }}
-              />
-            )}
-          </Stack>
         </Stack>
 
         {/* Loading / Not ready */}
@@ -252,7 +262,7 @@ export default function AuditResults() {
               </Typography>
             </Stack>
           </Paper>
-        ) : data?.status !== "finished" ? (
+        ) : auditData?.status !== "finished" || !result ? (
           <Paper
             elevation={0}
             sx={{
@@ -267,13 +277,15 @@ export default function AuditResults() {
               <Typography sx={{ fontWeight: 800, fontSize: "1.1rem" }}>
                 This audit isn’t finished yet
               </Typography>
+
               <LinearProgress
-                value={data?.progress ?? 0}
+                value={auditData?.progress ?? 0}
                 variant="determinate"
               />
+
               <Typography sx={{ color: "rgba(255,255,255,0.65)" }}>
-                Progress: {data?.progress ?? 0}%. You can stay here and refresh,
-                or head back to the scanner.
+                Progress: {auditData?.progress ?? 0}%. You can stay here and
+                refresh, or head back to the scanner.
               </Typography>
 
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
@@ -318,6 +330,10 @@ export default function AuditResults() {
                     bgcolor: "rgba(255,255,255,0.06)",
                     border: "1px solid rgba(255,255,255,0.12)",
                     backdropFilter: "blur(12px)",
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
                   }}
                 >
                   <Typography
@@ -355,41 +371,21 @@ export default function AuditResults() {
                     bgcolor: "rgba(255,255,255,0.06)",
                     border: "1px solid rgba(255,255,255,0.12)",
                     backdropFilter: "blur(12px)",
+                    height: "100%",
                   }}
                 >
                   <Typography sx={{ fontWeight: 800, mb: 1 }}>
-                    Return on Tracking Potential
-                  </Typography>
-                  <Typography sx={{ color: "rgba(255,255,255,0.7)", mb: 2 }}>
-                    Estimated upside if you move key signals to a first-party
-                    architecture and reduce third-party dependency.
+                    Recommended actions
                   </Typography>
 
-                  <Stack direction="row" spacing={2} alignItems="center">
-                    <Typography sx={{ fontWeight: 900, fontSize: "2rem" }}>
-                      {data.returnOnTrackingPotential ?? 95}%
-                    </Typography>
-                    <Box sx={{ flex: 1 }}>
-                      <LinearProgress
-                        variant="determinate"
-                        value={data.returnOnTrackingPotential ?? 95}
-                        sx={{
-                          height: 10,
-                          borderRadius: 999,
-                          bgcolor: "rgba(255,255,255,0.08)",
-                          "& .MuiLinearProgress-bar": {
-                            background:
-                              "linear-gradient(135deg, rgba(143,0,255,1), rgba(90,200,250,0.9))",
-                          },
-                        }}
-                      />
-                    </Box>
-                  </Stack>
+                  <Typography sx={{ color: "rgba(255,255,255,0.7)" }}>
+                    {result.recommendedActions}
+                  </Typography>
                 </Paper>
               </Grid>
             </Grid>
 
-            {/* Platform grid */}
+            {/* Platform breakdown */}
             <Paper
               elevation={0}
               sx={{
@@ -401,113 +397,220 @@ export default function AuditResults() {
                 mb: 2,
               }}
             >
-              <Stack spacing={2}>
-                <Typography sx={{ fontWeight: 800 }}>
-                  Platform breakdown
-                </Typography>
+              <Stack spacing={2} display={"flex"}>
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  spacing={1}
+                  alignItems={{ sm: "center" }}
+                  justifyContent="space-between"
+                >
+                  <Typography sx={{ fontWeight: 800 }}>
+                    Platform breakdown
+                  </Typography>
 
-                <Grid container spacing={2}>
-                  {(data.platforms ?? []).map((p) => (
-                    <Grid size={{ xs: 12, md: 4 }} key={p.platform}>
-                      <Box
-                        sx={{
-                          p: 2,
-                          borderRadius: 2,
-                          bgcolor: "rgba(0,0,0,0.25)",
-                          border: "1px solid rgba(255,255,255,0.10)",
-                        }}
-                      >
-                        <Stack spacing={1}>
-                          <Stack
-                            direction="row"
-                            justifyContent="space-between"
-                            alignItems="center"
-                          >
-                            <Typography sx={{ fontWeight: 800 }}>
-                              {p.platform}
-                            </Typography>
-                            <Chip
-                              size="small"
-                              label={p.grade}
+                  <Typography sx={{ color: "rgba(255,255,255,0.65)" }}>
+                    Only platforms detected as present are shown. Expand a card
+                    to see cookies.
+                  </Typography>
+                </Stack>
+
+                {presentPlatforms.length === 0 ? (
+                  <Typography sx={{ color: "rgba(255,255,255,0.7)" }}>
+                    No platforms detected.
+                  </Typography>
+                ) : (
+                  <Box sx={{ mx: "auto", width: "100%" }}>
+                    <Grid container spacing={1} justifyContent="center">
+                      {presentPlatforms.map((p) => {
+                        const meta = getPlatformMeta(p.platform);
+                        const grade = gradeFromScore(p.score);
+
+                        return (
+                          <Grid size={{ xs: 12 }} key={p.platform}>
+                            <Accordion
+                              disableGutters
+                              elevation={0}
                               sx={{
-                                bgcolor: "rgba(255,255,255,0.08)",
-                                color: "rgba(255,255,255,0.85)",
-                                border: "1px solid rgba(255,255,255,0.12)",
+                                bgcolor: "rgba(0,0,0,0.25)",
+                                border: "1px solid rgba(255,255,255,0.10)",
+                                borderRadius: 2,
+                                overflow: "hidden",
+                                "&:before": { display: "none" },
+                                minHeight: "75px",
+                                mx: "auto",
+                                display: "flex",
+                                flexDirection: "column",
+                                justifyContent: "center",
                               }}
-                            />
-                          </Stack>
+                            >
+                              <AccordionSummary
+                                expandIcon={
+                                  <ExpandMoreIcon
+                                    sx={{ color: "rgba(255,255,255,0.75)" }}
+                                  />
+                                }
+                                sx={{
+                                  "& .MuiAccordionSummary-content": {
+                                    my: 1,
+                                  },
+                                }}
+                              >
+                                <Stack
+                                  direction="row"
+                                  spacing={1.5}
+                                  alignItems="center"
+                                  sx={{ width: "100%" }}
+                                >
+                                  <Box
+                                    sx={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      color: "rgba(255,255,255,0.85)",
+                                      width: 32,
+                                      height: 32,
+                                    }}
+                                  >
+                                    {meta.icon}
+                                  </Box>
 
-                          <Typography sx={{ color: "rgba(255,255,255,0.7)" }}>
-                            Score: {p.score}/100 • Signal: {p.signal}
-                          </Typography>
+                                  <Box sx={{ flex: 1 }}>
+                                    <Typography sx={{ fontWeight: 900 }}>
+                                      {meta.label}
+                                    </Typography>
+                                    {/* <Typography
+                                    sx={{
+                                      color: "rgba(255,255,255,0.7)",
+                                      fontSize: "0.9rem",
+                                    }}
+                                  >
+                                    Score: {p.score}/100 • Signal: Strong
+                                  </Typography> */}
+                                  </Box>
 
-                          <Typography sx={{ color: "rgba(255,255,255,0.65)" }}>
-                            Estimated revenue loss: {p.estimatedRevenueLoss}
-                          </Typography>
+                                  <SignalBars
+                                    level={signalFromScore(p.score)}
+                                  />
+                                </Stack>
+                              </AccordionSummary>
 
-                          <Button
-                            variant="contained"
-                            size="small"
-                            sx={{
-                              mt: 1,
-                              textTransform: "none",
-                              fontWeight: 800,
-                              background:
-                                "linear-gradient(135deg, rgba(143,0,255,1), rgba(90,200,250,0.9))",
-                              boxShadow: "0 18px 55px rgba(143,0,255,0.18)",
-                            }}
-                            component={RouterLink}
-                            to={p.ctaHref ?? "/"}
-                          >
-                            Resolve
-                          </Button>
-                        </Stack>
-                      </Box>
+                              <AccordionDetails
+                                sx={{
+                                  borderTop: "1px solid rgba(255,255,255,0.08)",
+                                }}
+                              >
+                                <Stack spacing={1}>
+                                  <Typography sx={{ fontWeight: 800 }}>
+                                    Cookies detected
+                                  </Typography>
+
+                                  {p.debug.cookies.length === 0 ? (
+                                    <Typography
+                                      sx={{ color: "rgba(255,255,255,0.65)" }}
+                                    >
+                                      No cookies detected for this platform.
+                                    </Typography>
+                                  ) : (
+                                    <Stack
+                                      direction="row"
+                                      spacing={1}
+                                      flexWrap="wrap"
+                                      useFlexGap
+                                    >
+                                      {p.debug.cookies.map((c) => (
+                                        <Chip
+                                          key={`${p.platform}:${c}`}
+                                          size="small"
+                                          label={c}
+                                          sx={{
+                                            bgcolor: "rgba(255,255,255,0.06)",
+                                            color: "rgba(255,255,255,0.85)",
+                                            border:
+                                              "1px solid rgba(255,255,255,0.10)",
+                                          }}
+                                        />
+                                      ))}
+                                    </Stack>
+                                  )}
+
+                                  {p.resolveCTA ? (
+                                    <>
+                                      <Divider
+                                        sx={{
+                                          my: 1.5,
+                                          borderColor: "rgba(255,255,255,0.1)",
+                                        }}
+                                      />
+                                      <Typography
+                                        sx={{ color: "rgba(255,255,255,0.7)" }}
+                                      >
+                                        {p.resolveCTA}
+                                      </Typography>
+                                    </>
+                                  ) : null}
+                                </Stack>
+                              </AccordionDetails>
+                            </Accordion>
+                          </Grid>
+                        );
+                      })}
                     </Grid>
-                  ))}
-                </Grid>
+                  </Box>
+                )}
               </Stack>
             </Paper>
 
-            {/* Recommended actions */}
+            {/* Back / Refresh */}
             <Paper
               elevation={0}
               sx={{
-                p: 3,
+                p: 2.5,
                 borderRadius: 3,
                 bgcolor: "rgba(255,255,255,0.06)",
                 border: "1px solid rgba(255,255,255,0.12)",
                 backdropFilter: "blur(12px)",
               }}
             >
-              <Stack spacing={2}>
-                <Typography sx={{ fontWeight: 800 }}>
-                  Recommended actions
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1}
+                justifyContent="space-between"
+                alignItems={{ sm: "center" }}
+              >
+                <Typography sx={{ color: "rgba(255,255,255,0.65)" }}>
+                  Last updated:{" "}
+                  {auditData?.finishedAt
+                    ? new Date(auditData.finishedAt).toLocaleString()
+                    : "—"}
                 </Typography>
 
-                <Typography sx={{ color: "rgba(255,255,255,0.7)" }}>
-                  Based on observed cookie health and request patterns, these
-                  are the highest impact next steps.
-                </Typography>
+                <Stack direction="row" spacing={1}>
+                  <Button
+                    variant="outlined"
+                    component={RouterLink}
+                    to="/"
+                    sx={{
+                      textTransform: "none",
+                      fontWeight: 700,
+                      borderColor: "rgba(255,255,255,0.2)",
+                      color: "rgba(255,255,255,0.85)",
+                    }}
+                  >
+                    Back to home
+                  </Button>
 
-                <Divider sx={{ borderColor: "rgba(255,255,255,0.1)" }} />
-
-                <Stack spacing={1}>
-                  {(data.recommendedActions ?? []).map((a, idx) => (
-                    <Box
-                      key={idx}
-                      sx={{
-                        p: 1.5,
-                        borderRadius: 2,
-                        bgcolor: "rgba(0,0,0,0.25)",
-                        border: "1px solid rgba(255,255,255,0.10)",
-                      }}
-                    >
-                      <Typography sx={{ color: "rgba(255,255,255,0.85)" }}>
-                        {a}
-                      </Typography>
-                    </Box>
-                  ))}
+                  <Button
+                    variant="contained"
+                    onClick={fetchAudit}
+                    sx={{
+                      textTransform: "none",
+                      fontWeight: 800,
+                      background:
+                        "linear-gradient(135deg, rgba(143,0,255,1), rgba(90,200,250,0.9))",
+                      boxShadow: "0 18px 55px rgba(143,0,255,0.18)",
+                    }}
+                  >
+                    Refresh
+                  </Button>
                 </Stack>
               </Stack>
             </Paper>

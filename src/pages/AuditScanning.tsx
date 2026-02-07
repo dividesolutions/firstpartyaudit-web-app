@@ -11,6 +11,7 @@ import { useParams } from "react-router";
 import customAxios from "../lib/customAxios";
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
+import type { SignalLevel } from "../components/SignalBars";
 
 interface AuditScanningProps {
   id: string;
@@ -25,6 +26,13 @@ interface AuditScanningProps {
   finished_at: string | null;
 }
 
+function signalFromScore(score: number): SignalLevel {
+  if (score >= 85) return "strong";
+  if (score >= 70) return "medium";
+  if (score >= 50) return "weak";
+  return "bad";
+}
+
 export default function AuditScanning() {
   const navigate = useNavigate();
   const { auditId } = useParams<{ auditId: string }>();
@@ -34,6 +42,7 @@ export default function AuditScanning() {
   //Two states to display next button
   const [isFinished, setIsFinished] = useState(false);
   const [isEmailSet, setIsEmailSet] = useState(false);
+  const [emailError, setEmailError] = useState(false);
 
   const fetchResults = async () => {
     try {
@@ -76,6 +85,10 @@ export default function AuditScanning() {
 
     return () => clearInterval(interval);
   }, [auditId, isFinished]);
+
+  const isValidEmail = (value: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  };
 
   const showSubmitView = isFinished && isEmailSet;
 
@@ -173,14 +186,20 @@ export default function AuditScanning() {
             <TextField
               fullWidth
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setEmail(value);
+                setEmailError(value.length > 0 && !isValidEmail(value));
+              }}
               placeholder="Enter your email"
+              error={emailError}
+              helperText={emailError ? "Enter a valid email address" : " "}
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">
                     <Button
                       variant="contained"
-                      disabled={!email}
+                      disabled={!email || emailError}
                       onClick={() => appendEmail(email)}
                       sx={{
                         minWidth: 60,
