@@ -11,7 +11,6 @@ import { useParams } from "react-router";
 import customAxios from "../lib/customAxios";
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
-import type { SignalLevel } from "../components/SignalBars";
 
 interface AuditScanningProps {
   id: string;
@@ -26,12 +25,7 @@ interface AuditScanningProps {
   finished_at: string | null;
 }
 
-function signalFromScore(score: number): SignalLevel {
-  if (score >= 85) return "strong";
-  if (score >= 70) return "medium";
-  if (score >= 50) return "weak";
-  return "bad";
-}
+
 
 export default function AuditScanning() {
   const navigate = useNavigate();

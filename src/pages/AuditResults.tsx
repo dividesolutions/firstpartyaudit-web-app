@@ -13,20 +13,19 @@ import {
   Paper,
   Stack,
   Typography,
+  Grid,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from "@mui/material";
-
-import Grid from "@mui/material/Grid";
-import Accordion from "@mui/material/Accordion";
-import AccordionSummary from "@mui/material/AccordionSummary";
-import AccordionDetails from "@mui/material/AccordionDetails";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-
 import FacebookIcon from "@mui/icons-material/Facebook";
 import GoogleIcon from "@mui/icons-material/Google";
 import MusicNoteIcon from "@mui/icons-material/MusicNote";
-import WorkIcon from "@mui/icons-material/Work";
+import LinkedInIcon from "@mui/icons-material/LinkedIn";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
-
+import MetaLogo from "../assets/meta.svg?react";
+import TikTokLogo from "../assets/tiktok.svg?react";
 import SnackbarAlert from "../components/SnackBarAlert";
 
 // ============================
@@ -106,7 +105,7 @@ function signalFromScore(score: number): SignalLevel {
 const platformMeta: Record<string, { label: string; icon: React.ReactNode }> = {
   Meta: {
     label: "Meta",
-    icon: <FacebookIcon sx={{ width: 32, height: 32 }} />,
+    icon: <MetaLogo style={{ width: 32, height: 32, fill: "white" }} />,
   },
   "Google Analytics": {
     label: "Google Analytics",
@@ -118,11 +117,11 @@ const platformMeta: Record<string, { label: string; icon: React.ReactNode }> = {
   },
   TikTok: {
     label: "TikTok",
-    icon: <MusicNoteIcon sx={{ width: 32, height: 32 }} />,
+    icon: <TikTokLogo style={{ width: 32, height: 32, fill: "white" }} />,
   },
   LinkedIn: {
     label: "LinkedIn",
-    icon: <WorkIcon sx={{ width: 32, height: 32 }} />,
+    icon: <LinkedInIcon sx={{ width: 32, height: 32 }} />,
   },
 };
 
@@ -168,6 +167,14 @@ export default function AuditResults() {
     }
   };
 
+  const gradeColor = (score: number) => {
+    if (score >= 90) return "#22c55e"; // green
+    if (score >= 80) return "#84cc16"; // lime
+    if (score >= 70) return "#eab308"; // yellow
+    if (score >= 60) return "#f97316"; // orange
+    return "#ef4444"; // red
+  };
+
   useEffect(() => {
     fetchAudit();
   }, [auditId]);
@@ -201,8 +208,8 @@ export default function AuditResults() {
           position: "absolute",
           inset: 0,
           background: `
-            radial-gradient(900px 600px at 20% 25%, rgba(143,0,255,0.24), transparent 60%),
-            radial-gradient(700px 500px at 80% 65%, rgba(90,200,250,0.12), transparent 55%)
+        radial-gradient(900px 600px at 20% 25%, rgba(90,200,250,0.12), transparent 60%),
+        radial-gradient(700px 500px at 80% 65%, rgba(143,0,255,0.24), transparent 55%)
           `,
         }}
       />
@@ -320,17 +327,173 @@ export default function AuditResults() {
         ) : (
           <>
             {/* Top summary */}
-            <Grid container spacing={2} sx={{ mb: 2 }}>
-              <Grid size={{ xs: 12, md: 4 }}>
+            <Grid container spacing={2} sx={{ mb: 2, height: "250px" }}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Paper
                   elevation={0}
                   sx={{
-                    p: 3,
-                    borderRadius: 3,
-                    bgcolor: "rgba(255,255,255,0.06)",
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    backdropFilter: "blur(12px)",
+                    p: { xs: 2.5, sm: 3 },
+                    borderRadius: 4,
+                    position: "relative",
+                    overflow: "hidden",
                     height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
+
+                    // Glass + depth
+                    bgcolor: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.14)",
+                    backdropFilter: "blur(14px)",
+                    boxShadow: "0 18px 40px rgba(0,0,0,0.35)",
+
+                    // Subtle gradient sheen
+                    "&:before": {
+                      content: '""',
+                      position: "absolute",
+                      inset: 0,
+                      background:
+                        "radial-gradient(900px 500px at 20% 15%, rgba(255,255,255,0.12), transparent 55%), radial-gradient(700px 450px at 80% 85%, rgba(255,255,255,0.10), transparent 60%)",
+                      pointerEvents: "none",
+                    },
+
+                    // Top highlight border
+                    "&:after": {
+                      content: '""',
+                      position: "absolute",
+                      inset: 0,
+                      borderRadius: "inherit",
+                      pointerEvents: "none",
+                      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18)",
+                    },
+                  }}
+                >
+                  <Box sx={{ position: "relative" }}>
+                    {/* Header row */}
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        mb: 1.5,
+                      }}
+                    >
+                      <Typography
+                        sx={{
+                          fontWeight: 700,
+                          color: "rgba(255,255,255,0.78)",
+                          fontSize: { xs: "1.25rem", sm: "1.6rem" },
+                          letterSpacing: "-0.02em",
+                        }}
+                      >
+                        Overall grade
+                      </Typography>
+
+                      <Chip
+                        label={labelFromScore(overallScore)}
+                        size="small"
+                        sx={{
+                          color: "rgba(255,255,255,0.9)",
+                          bgcolor: "rgba(255,255,255,0.10)",
+                          border: "1px solid rgba(255,255,255,0.14)",
+                          backdropFilter: "blur(10px)",
+                          fontWeight: 700,
+                        }}
+                      />
+                    </Box>
+
+                    {/* Grade */}
+                    <Box
+                      sx={{ display: "flex", alignItems: "baseline", gap: 2 }}
+                    >
+                      <Box
+                        sx={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: { xs: 88, sm: 108 },
+                          height: { xs: 88, sm: 108 },
+                          borderRadius: 3,
+                          bgcolor: `${gradeColor(overallScore)}20`, // transparent color fill
+                          border: `1px solid ${gradeColor(overallScore)}55`,
+                          boxShadow: `0 10px 30px ${gradeColor(overallScore)}25`,
+                        }}
+                      >
+                        <Typography
+                          sx={{
+                            fontSize: { xs: "3.5rem", sm: "4.25rem" },
+                            fontWeight: 900,
+                            lineHeight: 1,
+                            color: gradeColor(overallScore),
+                            letterSpacing: "-0.04em",
+                          }}
+                        >
+                          {overallGrade}
+                        </Typography>
+                      </Box>
+
+                      <Box sx={{ flex: 1 }}>
+                        <Typography
+                          sx={{
+                            color: "rgba(255,255,255,0.72)",
+                            fontSize: { xs: "1rem", sm: "1.1rem" },
+                            mb: 1,
+                          }}
+                        >
+                          Score:{" "}
+                          <span
+                            style={{
+                              color: "rgba(255,255,255,0.92)",
+                              fontWeight: 800,
+                            }}
+                          >
+                            {overallScore}
+                          </span>
+                          /100
+                        </Typography>
+
+                        <LinearProgress
+                          variant="determinate"
+                          value={overallScore}
+                          sx={{
+                            height: 10,
+                            borderRadius: 999,
+                            bgcolor: "rgba(255,255,255,0.10)",
+                            border: "1px solid rgba(255,255,255,0.10)",
+                            "& .MuiLinearProgress-bar": {
+                              borderRadius: 999,
+                              backgroundColor: gradeColor(overallScore),
+                            },
+                          }}
+                        />
+                      </Box>
+                    </Box>
+
+                    {/* Footer helper text */}
+                    <Typography
+                      sx={{
+                        color: "rgba(255,255,255,0.55)",
+                        mt: 1.5,
+                        fontSize: "0.95rem",
+                      }}
+                    >
+                      {/* Tracking health snapshot based on your site scan. */}
+                    </Typography>
+                  </Box>
+                </Paper>
+              </Grid>
+
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: { xs: 2.5, sm: 3 },
+                    borderRadius: 4,
+                    bgcolor: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.14)",
+                    backdropFilter: "blur(14px)",
+                    height: "100%",
+                    boxShadow: "0 18px 40px rgba(0,0,0,0.35)",
                     display: "flex",
                     flexDirection: "column",
                     justifyContent: "center",
@@ -338,47 +501,24 @@ export default function AuditResults() {
                 >
                   <Typography
                     sx={{
-                      fontWeight: 700,
-                      color: "rgba(255,255,255,0.75)",
-                      mb: 1,
+                      fontWeight: 800,
+                      fontSize: "1.4rem",
+                      color: "rgba(255,255,255,0.9)",
+                      letterSpacing: "-0.02em",
+                      mb: 2,
                     }}
                   >
-                    Overall grade
+                    Recommended actions
                   </Typography>
 
                   <Typography
                     sx={{
-                      fontSize: "3.2rem",
-                      fontWeight: 900,
-                      lineHeight: 1,
+                      color: "rgba(255,255,255,0.78)",
+                      fontSize: "1.05rem",
+                      lineHeight: 1.7,
+                      whiteSpace: "pre-line",
                     }}
                   >
-                    {overallGrade}
-                  </Typography>
-
-                  <Typography sx={{ color: "rgba(255,255,255,0.65)", mt: 1 }}>
-                    Score: {overallScore}/100 • {labelFromScore(overallScore)}
-                  </Typography>
-                </Paper>
-              </Grid>
-
-              <Grid size={{ xs: 12, md: 8 }}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 3,
-                    borderRadius: 3,
-                    bgcolor: "rgba(255,255,255,0.06)",
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    backdropFilter: "blur(12px)",
-                    height: "100%",
-                  }}
-                >
-                  <Typography sx={{ fontWeight: 800, mb: 1 }}>
-                    Recommended actions
-                  </Typography>
-
-                  <Typography sx={{ color: "rgba(255,255,255,0.7)" }}>
                     {result.recommendedActions}
                   </Typography>
                 </Paper>
@@ -477,18 +617,10 @@ export default function AuditResults() {
                                     <Typography sx={{ fontWeight: 900 }}>
                                       {meta.label}
                                     </Typography>
-                                    {/* <Typography
-                                    sx={{
-                                      color: "rgba(255,255,255,0.7)",
-                                      fontSize: "0.9rem",
-                                    }}
-                                  >
-                                    Score: {p.score}/100 • Signal: Strong
-                                  </Typography> */}
                                   </Box>
 
                                   <SignalBars
-                                    level={signalFromScore(p.score)}
+                                    level={signalFromScore(overallScore)}
                                   />
                                 </Stack>
                               </AccordionSummary>
