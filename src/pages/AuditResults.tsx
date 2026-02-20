@@ -19,13 +19,12 @@ import {
   AccordionDetails,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import FacebookIcon from "@mui/icons-material/Facebook";
 import GoogleIcon from "@mui/icons-material/Google";
-import MusicNoteIcon from "@mui/icons-material/MusicNote";
 import LinkedInIcon from "@mui/icons-material/LinkedIn";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import MetaLogo from "../assets/meta.svg?react";
 import TikTokLogo from "../assets/tiktok.svg?react";
+import ga4Url from "../assets/ga4.png";
 import SnackbarAlert from "../components/SnackBarAlert";
 
 // ============================
@@ -109,7 +108,13 @@ const platformMeta: Record<string, { label: string; icon: React.ReactNode }> = {
   },
   "Google Analytics": {
     label: "Google Analytics",
-    icon: <GoogleIcon sx={{ width: 32, height: 32 }} />,
+    icon: (
+      <img
+        src={ga4Url}
+        alt="Google Analytics"
+        style={{ width: 32, height: 32, filter: "brightness(0) invert(1)" }}
+      />
+    ),
   },
   "Google Ads": {
     label: "Google Ads",

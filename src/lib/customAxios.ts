@@ -6,7 +6,6 @@ const customAxios = axios.create({
   withXSRFToken: true,
   headers: {
     Accept: "application/json",
-    "X-Requested-With": "XMLHttpRequest",
   },
 });
 
